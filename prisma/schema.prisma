@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String
+  role          UserRole  @default(STUDENT)
+  avatar        String?
+  phone         String?
+  location      String?
+  language      String    @default("en") // "en" or "ha"
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Student-specific fields
+  enrollments   Enrollment[]
+  submissions   QuizSubmission[]
+  certificates  Certificate[]
+  progress      Progress[]
+
+  // Admin-specific fields
+  createdCourses Course[] @relation("CourseCreator")
+  
+  @@map("users")
+}
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  nameHausa   String?
+  slug        String   @unique
+  description String?
+  color       String   @default("#3B82F6")
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  courses     Course[]
+
+  @@map("categories")
+}
+
+model Course {
+  id              String     @id @default(cuid())
+  title           String
+  titleHausa      String?
+  slug            String     @unique
+  description     String
+  descriptionHausa String?
+  thumbnail       String?
+  price           Float      @default(0)
+  currency        String     @default("NGN")
+  level           CourseLevel @default(BEGINNER)
+  language        String     @default("en") // "en", "ha", or "both"
+  duration        Int?       // in minutes
+  isPublished     Boolean    @default(false)
+  isFeatured      Boolean    @default(false)
+  requirements    String[]
+  whatYouLearn    String[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  // Relationships
+  categoryId      String
+  category        Category   @relation(fields: [categoryId], references: [id])
+  creatorId       String
+  creator         User       @relation("CourseCreator", fields: [creatorId], references: [id])
+  
+  lessons         Lesson[]
+  enrollments     Enrollment[]
+  certificates    Certificate[]
+  
+  @@map("courses")
+}
+
+model Lesson {
+  id              String      @id @default(cuid())
+  title           String
+  titleHausa      String?
+  slug            String
+  description     String?
+  descriptionHausa String?
+  content         String?     // Rich text content
+  contentHausa    String?
+  videoUrl        String?
+  videoDuration   Int?        // in seconds
+  order           Int
+  isPublished     Boolean     @default(false)
+  isFree          Boolean     @default(false)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  // Relationships
+  courseId        String
+  course          Course      @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  
+  resources       Resource[]
+  quizzes         Quiz[]
+  progress        Progress[]
+
+  @@unique([courseId, slug])
+  @@map("lessons")
+}
+
+model Resource {
+  id            String      @id @default(cuid())
+  title         String
+  titleHausa    String?
+  type          ResourceType
+  url           String
+  size          Int?        // in bytes
+  downloadCount Int         @default(0)
+  isDownloadable Boolean   @default(true)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  // Relationships
+  lessonId      String
+  lesson        Lesson      @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  @@map("resources")
+}
+
+model Quiz {
+  id              String    @id @default(cuid())
+  title           String
+  titleHausa      String?
+  description     String?
+  descriptionHausa String?
+  timeLimit       Int?      // in minutes
+  passingScore    Int       @default(70) // percentage
+  maxAttempts     Int       @default(3)
+  isPublished     Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relationships
+  lessonId        String
+  lesson          Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  
+  questions       Question[]
+  submissions     QuizSubmission[]
+
+  @@map("quizzes")
+}
+
+model Question {
+  id              String       @id @default(cuid())
+  question        String
+  questionHausa   String?
+  type            QuestionType @default(MULTIPLE_CHOICE)
+  options         String[]     // JSON array of options
+  optionsHausa    String[]     // JSON array of Hausa options
+  correctAnswer   String
+  explanation     String?
+  explanationHausa String?
+  points          Int          @default(1)
+  order           Int
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  // Relationships
+  quizId          String
+  quiz            Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+
+  @@map("questions")
+}
+
+model Enrollment {
+  id            String           @id @default(cuid())
+  status        EnrollmentStatus @default(ACTIVE)
+  progress      Float            @default(0) // percentage
+  completedAt   DateTime?
+  enrolledAt    DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  // Relationships
+  studentId     String
+  student       User             @relation(fields: [studentId], references: [id])
+  courseId      String
+  course        Course           @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId])
+  @@map("enrollments")
+}
+
+model Progress {
+  id            String    @id @default(cuid())
+  isCompleted   Boolean   @default(false)
+  completedAt   DateTime?
+  timeSpent     Int       @default(0) // in seconds
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  studentId     String
+  student       User      @relation(fields: [studentId], references: [id])
+  lessonId      String
+  lesson        Lesson    @relation(fields: [lessonId], references: [id])
+
+  @@unique([studentId, lessonId])
+  @@map("progress")
+}
+
+model QuizSubmission {
+  id            String    @id @default(cuid())
+  answers       Json      // JSON object with question IDs as keys
+  score         Float     @default(0)
+  totalPoints   Int
+  passed        Boolean   @default(false)
+  timeSpent     Int       @default(0) // in seconds
+  submittedAt   DateTime  @default(now())
+
+  // Relationships
+  studentId     String
+  student       User      @relation(fields: [studentId], references: [id])
+  quizId        String
+  quiz          Quiz      @relation(fields: [quizId], references: [id])
+
+  @@map("quiz_submissions")
+}
+
+model Certificate {
+  id            String    @id @default(cuid())
+  certificateId String    @unique // Public certificate ID
+  issuedAt      DateTime  @default(now())
+  validUntil    DateTime?
+  creditsEarned Int       @default(0)
+
+  // Relationships
+  studentId     String
+  student       User      @relation(fields: [studentId], references: [id])
+  courseId      String
+  course        Course    @relation(fields: [courseId], references: [id])
+
+  @@unique([studentId, courseId])
+  @@map("certificates")
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Float
+  currency      String        @default("NGN")
+  status        PaymentStatus @default(PENDING)
+  provider      String        @default("paystack") // "paystack" or "stripe"
+  providerTxId  String?       // Transaction ID from payment provider
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relationships
+  studentId     String
+  courseId      String
+
+  @@map("payments")
+}
+
+// Enums
+enum UserRole {
+  SUPER_ADMIN
+  ADMIN
+  STUDENT
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum ResourceType {
+  PDF
+  VIDEO
+  AUDIO
+  DOCUMENT
+  PRESENTATION
+  LINK
+}
+
+enum QuestionType {
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+  SHORT_ANSWER
+  ESSAY
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  COMPLETED
+  SUSPENDED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
