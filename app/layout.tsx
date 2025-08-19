@@ -1,38 +1,32 @@
-import './globals.css'
-import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import { ThemeProvider } from '@/components/theme-provider'
-import { Toaster } from '@/components/ui/sonner'
-import { AuthProvider } from '@/components/auth-provider'
+import './globals.css';
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import Navigation from '@/components/Navigation';
+import { Toaster } from '@/components/ui/toaster';
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Northern Nigeria LMS - Learn & Grow',
-  description: 'A comprehensive learning management system for Northern Nigeria',
-  keywords: 'education, learning, Northern Nigeria, Hausa, online courses',
-}
+  title: 'Blockchain Learning Lab',
+  description: 'Interactive blockchain education for beginners',
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body className={inter.className}>
-        <AuthProvider>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
+        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+          <Navigation />
+          <main className="container mx-auto px-4 py-8">
             {children}
-            <Toaster />
-          </ThemeProvider>
-        </AuthProvider>
+          </main>
+          <Toaster />
+        </div>
       </body>
     </html>
-  )
+  );
 }
